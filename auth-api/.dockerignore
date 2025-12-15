@@ -1,0 +1,30 @@
+README.md
+# Ignore binaries
+auth-api
+
+# Ignore Go build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Ignore editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore git files
+.git/
+.gitignore
+
+# Ignore dependency directories
+vendor/
+
+# Ignore logs and temp files
+*.log
+tmp/
