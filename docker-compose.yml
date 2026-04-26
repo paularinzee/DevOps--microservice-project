@@ -1,0 +1,129 @@
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  traefik:
+    image: traefik:v2.10
+    restart: always
+    command:
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.filename=/etc/traefik/traefik.yaml"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.email=arinzennajipaul@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=websecure"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+      - /etc/traefik/traefik.yaml:/etc/traefik/traefik.yaml
+    networks:
+      - app-network
+
+  auth-api:
+    build:
+      context: ./auth-api
+    environment:
+      - AUTH_API_PORT=8081
+      - USERS_API_ADDRESS=http://users-api:8083
+      - JWT_SECRET=myfancysecret
+    ports:
+      - "8081:8081"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=Host(`auth.arinzennaji.tech`, `auth-api.arinzennaji.tech`)"
+      - "traefik.http.routers.auth.entrypoints=websecure"
+      - "traefik.http.routers.auth.tls=true"
+      - "traefik.http.routers.auth.tls.certresolver=myresolver"
+      -  "traefik.http.routers.auth.service=auth-api"
+      - "traefik.http.services.auth-api.loadbalancer.server.port=8081"
+    depends_on:
+      - users-api
+    networks:
+      - app-network
+
+  log-message-processor:
+    build:
+      context: ./log-message-processor
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_CHANNEL=log_channel
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  todos-api:
+    build:
+      context: ./todos-api
+    environment:
+      - TODO_API_PORT=8082
+      - JWT_SECRET=myfancysecret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_CHANNEL=log_channel
+    ports:
+      - "8082:8082"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.todos.rule=Host(`todos.arinzennaji.tech`, `todos-api.arinzennaji.tech`)"
+      - "traefik.http.routers.todos.entrypoints=websecure"
+      - "traefik.http.routers.todos.tls=true"
+      - "traefik.http.routers.todos.service=todos-api"
+      - "traefik.http.services.todos-api.loadbalancer.server.port=8082"
+    depends_on:
+      - redis
+      - log-message-processor
+    networks:
+      - app-network
+
+  users-api:
+    build:
+      context: ./users-api
+    environment:
+      - JWT_SECRET=myfancysecret
+      - SERVER_PORT=8083
+    ports:
+      - "8083:8083"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.users.rule=Host(`users.arinzennaji.tech`, `users-api.arinzennaji.tech`)"
+      - "traefik.http.routers.users.entrypoints=websecure"
+      - "traefik.http.routers.users.tls=true"
+      - "traefik.http.routers.users.tls.certresolver=myresolver"
+      - "traefik.http.routers.users.service=users-api"
+      - "traefik.http.services.users-api.loadbalancer.server.port=8083"
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - auth-api
+      - todos-api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`arinzennaji.tech`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.http.routers.frontend.priority=5"
+    networks:
+      - app-network
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+volumes:
+  letsencrypt:
