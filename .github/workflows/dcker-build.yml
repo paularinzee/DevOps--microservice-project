@@ -1,0 +1,116 @@
+name: Build and Push Docker Images
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.DOCKER_USERNAME }}/user-api
+            ${{ secrets.DOCKER_USERNAME }}/todos-api
+            ${{ secrets.DOCKER_USERNAME }}/log-message-processor
+            ${{ secrets.DOCKER_USERNAME }}/web-frontend
+          tags: |
+            type=sha,format=short
+            type=raw,value=latest
+
+      - name: Build and push User Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./user-api
+          file: ./user-api/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/user-api:${{ steps.meta.outputs.version }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/user-api:cache
+          cache-to: type=inline
+      
+      - name: Scan User Backend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ secrets.DOCKER_USERNAME }}/user-api:${{ steps.meta.outputs.version }}'
+          format: 'table'
+          exit-code: '0' 
+          severity: 'CRITICAL,HIGH'
+
+
+      - name: Build and push Todos Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./todos-api
+          file: ./todos-api/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/todos-api:${{ steps.meta.outputs.version }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/user-api:cache
+          cache-to: type=inline
+      
+      - name: Scan Todos Backend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ secrets.DOCKER_USERNAME }}/todos-api:${{ steps.meta.outputs.version }}'
+          format: 'table'
+          exit-code: '0' 
+          severity: 'CRITICAL,HIGH'
+
+
+      - name: Build and push Log Message Processor
+        uses: docker/build-push-action@v5
+        with:
+          context: ./log-message-processor
+          file: ./log-message-processor/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/log-message-processor:${{ steps.meta.outputs.version }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/log-message-processor:cache
+          cache-to: type=inline
+      
+      - name: Scan Log Message Processor Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ secrets.DOCKER_USERNAME }}/log-message-processor:${{ steps.meta.outputs.version }}'
+          format: 'table'
+          exit-code: '0' 
+          severity: 'CRITICAL,HIGH'
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/web-frontend:${{ steps.meta.outputs.version }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/web-frontend:cache
+          cache-to: type=inline
+
+      - name: Scan Frontend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ secrets.DOCKER_USERNAME }}/web-frontend:latest'
+          format: 'table'
+          exit-code: '0' # Fail the workflow if vulnerabilities are found
+          severity: 'CRITICAL,HIGH'
+
+      
+
+
+    
+      
