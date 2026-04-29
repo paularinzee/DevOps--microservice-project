@@ -1,8 +1,9 @@
-FROM python:3.9-slim
+# Python 3.7 is the "Safe Zone" for legacy thriftpy compilation
+FROM python:3.7-slim-buster
 
 WORKDIR /app
 
-# Install build-essential for C-extensions
+# Install build tools needed for the Thrift C-extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
@@ -10,8 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY . /app
 
-# Upgrade pip and install
-RUN pip install --upgrade pip && \
+# Use an older pip version to ensure legacy support
+RUN pip install --upgrade "pip<21.0" && \
     pip install --no-cache-dir -r requirements.txt
 
-CMD ["python3", "main.py"]
+CMD ["python", "main.py"]
