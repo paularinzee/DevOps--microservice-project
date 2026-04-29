@@ -1,17 +1,20 @@
-# Python 3.7 is the "Safe Zone" for legacy thriftpy compilation
 FROM python:3.7-slim-buster
 
 WORKDIR /app
 
-# Install build tools needed for the Thrift C-extensions
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Point to the Debian Archive since Buster is EOL (End of Life)
+RUN sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list && \
+    sed -i 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' /etc/apt/sources.list && \
+    sed -i '/stretch-updates/d' /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . /app
 
-# Use an older pip version to ensure legacy support
+# Keep pip older for legacy thriftpy support
 RUN pip install --upgrade "pip<21.0" && \
     pip install --no-cache-dir -r requirements.txt
 
