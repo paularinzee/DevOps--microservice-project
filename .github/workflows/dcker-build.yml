@@ -48,7 +48,7 @@ jobs:
       - name: Scan User Backend Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: '${{ secrets.DOCKER_USERNAME }}/user-api:${{ steps.meta.outputs.version }}'
+          image-ref: '${{ secrets.DOCKER_USERNAME }}/users-api:${{ steps.meta.outputs.version }}'
           format: 'table'
           exit-code: '0' 
           severity: 'CRITICAL,HIGH'
@@ -61,7 +61,7 @@ jobs:
           file: ./todos-api/Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/todos-api:${{ steps.meta.outputs.version }}
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/user-api:cache
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/todos-api-api:cache
           cache-to: type=inline
       
       - name: Scan Todos Backend Image with Trivy
