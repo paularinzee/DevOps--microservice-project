@@ -27,7 +27,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ secrets.DOCKER_USERNAME }}/user-api
+            ${{ secrets.DOCKER_USERNAME }}/users-api
             ${{ secrets.DOCKER_USERNAME }}/todos-api
             ${{ secrets.DOCKER_USERNAME }}/log-message-processor
             ${{ secrets.DOCKER_USERNAME }}/web-frontend
@@ -38,11 +38,11 @@ jobs:
       - name: Build and push User Backend
         uses: docker/build-push-action@v5
         with:
-          context: ./user-api
-          file: ./user-api/Dockerfile
+          context: ./users-api
+          file: ./users-api/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/user-api:${{ steps.meta.outputs.version }}
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/user-api:cache
+          tags: ${{ secrets.DOCKER_USERNAME }}/users-api:${{ steps.meta.outputs.version }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/users-api:cache
           cache-to: type=inline
       
       - name: Scan User Backend Image with Trivy
