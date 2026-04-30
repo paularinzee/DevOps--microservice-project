@@ -3,9 +3,15 @@ import redis
 import os
 import json
 import requests
-from py_zipkin.zipkin import zipkin_span, ZipkinAttrs, generate_random_64bit_string
-import time
 import random
+
+# Compatibility Wrapper for legacy thriftpy
+try:
+    import thriftpy2 as thriftpy
+except ImportError:
+    pass 
+
+from py_zipkin.zipkin import zipkin_span, ZipkinAttrs, generate_random_64bit_string
 
 def log_message(message):
     time_delay = random.randrange(0, 2000)
@@ -13,10 +19,12 @@ def log_message(message):
     print('message received after waiting for {}ms: {}'.format(time_delay, message))
 
 if __name__ == '__main__':
-    redis_host = os.environ['REDIS_HOST']
-    redis_port = int(os.environ['REDIS_PORT'])
-    redis_channel = os.environ['REDIS_CHANNEL']
-    zipkin_url = os.environ['ZIPKIN_URL'] if 'ZIPKIN_URL' in os.environ else ''
+    # Environment Variables
+    redis_host = os.environ.get('REDIS_HOST', 'localhost')
+    redis_port = int(os.environ.get('REDIS_PORT', 6379))
+    redis_channel = os.environ.get('REDIS_CHANNEL', 'log_channel')
+    zipkin_url = os.environ.get('ZIPKIN_URL', '')
+
     def http_transport(encoded_span):
         requests.post(
             zipkin_url,
@@ -24,15 +32,24 @@ if __name__ == '__main__':
             headers={'Content-Type': 'application/x-thrift'},
         )
 
-    pubsub = redis.Redis(host=redis_host, port=redis_port, db=0).pubsub()
+    # Redis Connection
+    r = redis.Redis(host=redis_host, port=redis_port, db=0)
+    pubsub = r.pubsub()
     pubsub.subscribe([redis_channel])
+
+    print(f"Subscribed to {redis_channel}. Waiting for messages...")
+
     for item in pubsub.listen():
-        try:
-            message = json.loads(str(item['data'].decode("utf-8")))
-        except Exception as e:
-            log_message(e)
+        if item['type'] != 'message':
             continue
 
+        try:
+            message = json.loads(item['data'].decode("utf-8"))
+        except Exception as e:
+            log_message(f"Error decoding JSON: {e}")
+            continue
+
+        # Process without Zipkin if URL is missing
         if not zipkin_url or 'zipkinSpan' not in message:
             log_message(message)
             continue
@@ -56,7 +73,3 @@ if __name__ == '__main__':
         except Exception as e:
             print('did not send data to Zipkin: {}'.format(e))
             log_message(message)
-
-
-
-
