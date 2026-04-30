@@ -1,26 +1,22 @@
-FROM python:3.7-slim-buster
+FROM python:3.9-slim
 
 WORKDIR /app
 
-# 1. Fix the Archive repositories for Buster
-RUN sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list && \
-    sed -i 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' /etc/apt/sources.list && \
-    sed -i '/stretch-updates/d' /etc/apt/sources.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends gcc python3-dev && \
-    rm -rf /var/lib/apt/lists/*
+# 1. Install build tools needed for C-extensions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# 2. THE SECRET SAUCE: Set CFLAGS to allow "Legacy" C code
-# This tells GCC to ignore the strict errors that are killing your build.
-ENV CFLAGS="-fcommon -fno-strict-aliasing"
+# 2. Relax GCC strictness to allow legacy C code to compile if needed
+ENV CFLAGS="-fcommon"
 
 COPY . /app
 
-# 3. Install requirements
-# We install thriftpy2 first because it is a drop-in binary replacement 
-# that prevents the broken thriftpy from ever being touched.
-RUN pip install --upgrade "pip<21.0" && \
+# 3. THE FIX: Install thriftpy2 manually BEFORE requirements.txt
+# This satisfies the py_zipkin dependency so the broken thriftpy is skipped.
+RUN pip install --upgrade pip && \
     pip install thriftpy2 && \
     pip install --no-cache-dir -r requirements.txt
 
-CMD ["python", "main.py"]
+CMD ["python3", "main.py"]
