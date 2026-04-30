@@ -1,22 +1,10 @@
-FROM python:3.9-slim
-
+# Python log processor
+FROM python:3.8
 WORKDIR /app
-
-# 1. Install build tools needed for C-extensions
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# 2. Relax GCC strictness to allow legacy C code to compile if needed
-ENV CFLAGS="-fcommon"
-
-COPY . /app
-
-# 3. THE FIX: Install thriftpy2 manually BEFORE requirements.txt
-# This satisfies the py_zipkin dependency so the broken thriftpy is skipped.
-RUN pip install --upgrade pip && \
-    pip install thriftpy2 && \
-    pip install --no-cache-dir -r requirements.txt
-
-CMD ["python3", "main.py"]
+COPY requirements.txt .
+# First install C dependencies needed for thriftpy2
+RUN apt-get update && apt-get install -y gcc python3-dev
+# Then install Python requirements
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["python", "main.py"]
